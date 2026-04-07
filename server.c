@@ -8,7 +8,7 @@
 
 int main(){
         int server_socket, client_socket;
-        struct socketaddr_in address; //stores ip + port info
+        struct sockaddr_in address; //stores ip + port info
         int addrlen = sizeof(address); //size of address
         char buffer[30000] = {0}; //buffer to store data from client like http request
 
@@ -30,7 +30,7 @@ int main(){
 
         while(1){
             //accept client connection
-            client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+            client_socket = accept(server_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen);
             if (client_socket < 0){
                 perror("accept failed");
                 continue;
