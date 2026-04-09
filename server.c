@@ -6,6 +6,25 @@
 
 #define PORT 8080
 
+void send_home(int client_socket){
+    char *response =
+   "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n\r\n"
+        "<html>"
+        "<head><title>Emergency Help</title></head>"
+        "<body>"
+        "<h1> Emergency Help System</h1>"
+        "<form method='POST' action='/help'>"
+        "Name: <input type='text' name='name'><br><br>"
+        "Message: <input type='text' name='message'><br><br>"
+        "Location: <input type='text' name='location'><br><br>"
+        "<button type='submit'>Send Help Request</button>"
+        "</form>"
+        "<br><a href='/requests'>View Requests</a>"
+        "</body></html>";
+    send(client_socket, response, strlen(response), 0);
+}
+
 int main(){
         int server_socket, client_socket;
         struct sockaddr_in address; //stores ip + port info
@@ -25,28 +44,28 @@ int main(){
 
         bind(server_socket, (struct sockaddr *)&address, sizeof(address)); //attach socket to ip + port
 
-        listen(server_socket, 5); //listen for incoming connections, max 5 in queue
-        printf("HTTP Server running on port %d...\n", PORT);
+        listen(server_socket, 100); //listen for incoming connections, max 5 in queue
+        printf(" Server running on port %d...\n", PORT);
 
         while(1){
             //accept client connection
             client_socket = accept(server_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-            if (client_socket < 0){
-                perror("accept failed");
-                continue;
-            }
+
+            // if (client_socket < 0){
+            //     perror("accept failed");
+            //     continue;
+            // }
+
             //read data from client
             read(client_socket, buffer, 30000);
             printf("Received request:\n%s\n", buffer);
 
-            //send response to client
-            char *response =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n"
-            "\r\n"
-            "<html><body><h1>Hello from C Server </h1></body></html>";
-
-            send(client_socket, response, strlen(response), 0);
+           if(strncmp(buffer, "GET /", 6) == 0 || strncmp(buffer, "GET /HTTP", 9) == 0){
+                send_home(client_socket);
+           }else{
+                char *not_found = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
+                send(client_socket, not_found, strlen(not_found), 0);
+           }
             close(client_socket);
         }
         return 0;
