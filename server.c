@@ -3,15 +3,37 @@
 #include <string.h> //for strlen()
 #include <unistd.h> //for read(), write() and close()
 #include <arpa/inet.h> //networking stuff ip port socket
+#include <errno.h>
+#include <time.h>
+#include <signal.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
 
+//configuration
 #define PORT 8080
+#define BACKLOG 10
+#define RECV_BUFFER_SIZE 8192
+#define MAX_FIELD_LEN 256
+#define REQUESTS_FILE "requests.txt"
+#define REQUEST_ID_FILE "request_id.txt"
+
+//ansi colors
+#define CLR_RED     "\033[0;31m"
+#define CLR_GREEN   "\033[0;32m"
+#define CLR_YELLOW  "\033[0;33m"
+#define CLR_CYAN    "\033[0;36m"
+#define CLR_BOLD    "\033[1m"
+#define CLR_RESET   "\033[0m"
+
+
 
 void send_home(int client_socket){
     char *response =
    "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
         "<html>"
-        "<head><title>Emergency Help</title></head>"
+        "<head><title>Submit Help Request</title></head>"
         "<body>"
         "<h1> Emergency Help System</h1>"
         "<form method='POST' action='/help'>"
