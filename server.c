@@ -370,6 +370,91 @@ static void send_405(int fd) {
     send_html(fd, 405, "Method Not Allowed", body);
 }
 
+//route handlers
+
+static void handle_home(int fd) {
+    char buf[32768];
+    build_homepage(buf, sizeof(buf));
+    send_html(fd, 200, "OK", buf);
+}
+ 
+static void handle_post_help(int fd, const char *req_buf) {
+    /* Locate HTTP body (after blank line) */
+    const char *body = strstr(req_buf, "\r\n\r\n");
+    if (!body) { send_405(fd); return; }
+    body += 4;
+ 
+    char name[MAX_FIELD_LEN]     = "";
+    char location[MAX_FIELD_LEN] = "";
+    char message[MAX_FIELD_LEN]  = "";
+ 
+    extract_field(body, "name",     name,     sizeof(name));
+    extract_field(body, "location", location, sizeof(location));
+    extract_field(body, "message",  message,  sizeof(message));
+ 
+    sanitize(name,     sizeof(name));
+    sanitize(location, sizeof(location));
+    sanitize(message,  sizeof(message));
+ 
+    /* Basic validation */
+    if (strlen(name) == 0 || strlen(message) == 0) {
+        const char *err =
+            "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+            "<title>Error – EHS</title>" SHARED_CSS "</head><body>"
+            HTML_HEADER_NAV
+            "<h1>Invalid Submission</h1>"
+            "<p class='sub2'>Name and message are required fields.</p>"
+            "<a class='btn' href='/'>Try Again</a>"
+            HTML_FOOT;
+        send_html(fd, 400, "Bad Request", err);
+        return;
+    }
+ 
+    /* Timestamp */
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char timestamp[64];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", t);
+ 
+    int req_id = next_request_id();
+ 
+    /* Persist: ID|timestamp|name|location|message */
+    FILE *f = fopen(REQUESTS_FILE, "a");
+    if (f) {
+        fprintf(f, "%04d|%s|%s|%s|%s\n",
+                req_id, timestamp, name, location, message);
+        fclose(f);
+        printf(CLR_GREEN "[+] REQ #%04d — %s — loc: %s\n" CLR_RESET,
+               req_id, name, location);
+    } else {
+        fprintf(stderr, CLR_RED "[-] Cannot open %s: %s\n" CLR_RESET,
+                REQUESTS_FILE, strerror(errno));
+    }
+ 
+    char success[8192];
+    build_success_page(success, sizeof(success), req_id);
+    send_html(fd, 200, "OK", success);
+}
+ 
+static void handle_view_requests(int fd) {
+    char buf[131072];
+    build_requests_page(buf, sizeof(buf));
+    send_html(fd, 200, "OK", buf);
+}
+ 
+static void handle_status(int fd) {
+    int count = 0;
+    FILE *f = fopen(REQUESTS_FILE, "r");
+    if (f) {
+        char line[512];
+        while (fgets(line, sizeof(line), f)) count++;
+        fclose(f);
+    }
+    char json[256];
+    snprintf(json, sizeof(json),
+             "{\"status\":\"running\",\"requests_stored\":%d}", count);
+    send_response(fd, 200, "OK", "application/json", json, strlen(json));
+}
 int main(){
         int server_socket, client_socket;
         struct sockaddr_in address; //stores ip + port info
