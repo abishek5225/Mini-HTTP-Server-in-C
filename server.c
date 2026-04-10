@@ -26,6 +26,12 @@
 #define CLR_BOLD    "\033[1m"
 #define CLR_RESET   "\033[0m"
 
+//cleans up child processes after they exit.
+static void sigchld_handler(int sig) {
+    (void)sig;
+    while (waitpid(-1, NULL, WNOHANG) > 0);
+}
+
 //shared css for all pages via macro
 
 #define SHARED_CSS \
