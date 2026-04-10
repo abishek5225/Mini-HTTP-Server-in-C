@@ -484,9 +484,97 @@ static void dispatch(int client_fd, const char *buf) {
 
 }
 
-int main(){
-      
-    
-   
+int main(int argc, char *argv[]) {
+    int port = DEFAULT_PORT;
+    if (argc >= 2) {
+        port = atoi(argv[1]);
+        if (port <= 0 || port > 65535) {
+            fprintf(stderr, "Usage: %s [port]  (default %d)\n",
+                    argv[0], DEFAULT_PORT);
+            return 1;
+        }
+    }
+    //create tcp socket
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) { perror("socket"); return 1; }
+ 
+    // Allow quick reuse of the port after restart
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+ 
+    // 2. Bind to all interfaces on specified port
+    struct sockaddr_in addr = {0};
+    addr.sin_family      = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port        = htons((uint16_t)port);
+ 
+    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("bind"); close(server_fd); return 1;
+    }
+ 
+    //listen
+    if (listen(server_fd, BACKLOG) < 0) {
+        perror("listen"); close(server_fd); return 1;
+    }
+ 
+    // Reap zombie children automatically 
+    struct sigaction sa = {0};
+    sa.sa_handler = sigchld_handler;
+    sa.sa_flags   = SA_RESTART;
+    sigaction(SIGCHLD, &sa, NULL);
+     
+    printf(CLR_BOLD "  Emergency Help System — Offline LAN Server\n" CLR_RESET);
+    printf("  ─────────────────────────────────────────────\n");
+    printf("  " CLR_GREEN "Listening" CLR_RESET "     http://0.0.0.0:%d\n", port);
+    printf("  " CLR_GREEN "Storage"   CLR_RESET "      %s\n", REQUESTS_FILE);
+    printf("  " CLR_YELLOW "Routes" CLR_RESET "       "
+           "GET /  |  POST /help  |  GET /requests  |  GET /status\n");
+    printf("  Press Ctrl+C to stop.\n\n");
+ 
+    // Accept loop  fork() per connection for concurrency 
+    while (1) {
+        struct sockaddr_in client_addr;
+        socklen_t addr_len = sizeof(client_addr);
+ 
+        int client_fd = accept(server_fd,
+                               (struct sockaddr *)&client_addr, &addr_len);
+        if (client_fd < 0) {
+            if (errno == EINTR) continue;
+            perror("accept");
+            continue;
+        }
+ 
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &client_addr.sin_addr,
+                  client_ip, sizeof(client_ip));
+        printf(CLR_YELLOW "[*] Connection from %s\n" CLR_RESET, client_ip);
+ 
+        pid_t pid = fork();
+        if (pid < 0) {
+            perror("fork");
+            close(client_fd);
+            continue;
+        }
+ 
+        if (pid == 0) {
+            // Child: handle one request then exit
+            close(server_fd);
+ 
+            char req_buf[RECV_BUFFER_SIZE + 1] = {0};
+            ssize_t bytes = recv(client_fd, req_buf, RECV_BUFFER_SIZE, 0);
+            if (bytes > 0) {
+                req_buf[bytes] = '\0';
+                dispatch(client_fd, req_buf);
+            }
+ 
+            close(client_fd);
+            exit(0);
+        }
+ 
+        // Parent: close duplicated fd loop 
+        close(client_fd);
+    }
+ 
+    close(server_fd);
     return 0;
 }
