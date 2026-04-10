@@ -51,20 +51,25 @@ int main(){
             //accept client connection
             client_socket = accept(server_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen);
 
-            // if (client_socket < 0){
-            //     perror("accept failed");
-            //     continue;
-            // }
+            if (client_socket < 0){
+                perror("accept failed");
+                continue;
+            }
+
+            memset(buffer, 0, sizeof(buffer));//clear buffer everytime before reading new data
 
             //read data from client
             read(client_socket, buffer, 30000);
             printf("Received request:\n%s\n", buffer);
 
-           if(strncmp(buffer, "GET /", 6) == 0 || strncmp(buffer, "GET /HTTP", 9) == 0){
+           if(strncmp(buffer, "GET / ", 6) == 0 ){
                 send_home(client_socket);
+           }else if (strncmp(buffer, "GET /favicon.ico", 16) == 0){
+                //ignore favicon requests
            }else{
-                char *not_found = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
+            char *not_found = "HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\n<html><body><h1>404 Not Found</h1></body></html>";
                 send(client_socket, not_found, strlen(not_found), 0);
+           
            }
             close(client_socket);
         }
