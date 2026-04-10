@@ -160,23 +160,57 @@ static int next_request_id(void) {
 "</style>"
 
 
-void send_home(int client_socket){
-    char *response =
-   "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n\r\n"
-        "<html>"
-        "<head><title>Submit Help Request</title></head>"
-        "<body>"
-        "<h1> Emergency Help System</h1>"
-        "<form method='POST' action='/help'>"
-        "Name: <input type='text' name='name'><br><br>"
-        "Message: <input type='text' name='message'><br><br>"
-        "Location: <input type='text' name='location'><br><br>"
-        "<button type='submit'>Send Help Request</button>"
-        "</form>"
-        "<br><a href='/requests'>View Requests</a>"
-        "</body></html>";
-    send(client_socket, response, strlen(response), 0);
+#define HTML_HEADER_NAV \
+"<header>" \
+"  <div><div class='logo'>&#9888; EHS</div>" \
+"  <div class='sub'>Emergency Help System &mdash; Offline LAN Mode</div></div>" \
+"  <nav>" \
+"    <a href='/'>Submit</a>" \
+"    <a href='/requests'>View Requests</a>" \
+"    <a href='/status'>Status</a>" \
+"  </nav>" \
+"</header><main>"
+
+#define HTML_FOOT \
+"</main><footer>Emergency Help System &bull; Offline LAN &bull; " \
+"No internet required</footer></body></html>"
+
+//page builders
+
+static void build_homepage(char *buf, size_t len) {
+    snprintf(buf, len,
+        "<!DOCTYPE html><html lang='en'><head>"
+        "<meta charset='UTF-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Emergency Help System</title>"
+        SHARED_CSS
+        "</head><body>"
+        HTML_HEADER_NAV
+        "<h1>Submit Help Request</h1>"
+        "<p class='sub2'>Fill in the form below. Your request will be "
+        "recorded and visible to all responders on this network.</p>"
+        "<div class='card'>"
+        "  <div class='alert-box'>"
+        "    &#9888;&nbsp;<strong>EMERGENCY USE ONLY.</strong>&nbsp;"
+        "    All submissions are logged with a timestamp."
+        "  </div>"
+        "  <form method='POST' action='/help'>"
+        "    <label for='name'>Your Name</label>"
+        "    <input type='text' id='name' name='name' "
+        "           placeholder='Full name' maxlength='100' required>"
+        "    <label for='location'>Location</label>"
+        "    <input type='text' id='location' name='location' "
+        "           placeholder='e.g. Room 204, Building A' "
+        "           maxlength='150' required>"
+        "    <label for='message'>Describe the Emergency</label>"
+        "    <textarea id='message' name='message' "
+        "              placeholder='Describe what help you need...' "
+        "              maxlength='500' required></textarea>"
+        "    <button type='submit'>&#128680; Send Help Request</button>"
+        "  </form>"
+        "</div>"
+        HTML_FOOT
+    );
 }
 
 int main(){
