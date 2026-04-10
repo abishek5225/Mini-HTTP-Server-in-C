@@ -32,6 +32,64 @@ static void sigchld_handler(int sig) {
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
+//url decode function to convert %20 to space and handle other url encoded characters
+static void url_decode(const char *src, char *dst, size_t dst_len) {
+    size_t i = 0, j = 0;
+    while (src[i] && j + 1 < dst_len) {
+        if (src[i] == '%' && src[i+1] && src[i+2]) {
+            char hex[3] = { src[i+1], src[i+2], '\0' };
+            dst[j++] = (char)strtol(hex, NULL, 16);
+            i += 3;
+        } else if (src[i] == '+') {
+            dst[j++] = ' ';
+            i++;
+        } else {
+            dst[j++] = src[i++];
+        }
+    }
+    dst[j] = '\0';
+}
+
+//extract key = value pairs from url encoded form data 
+static int extract_field(const char *body, const char *key,
+                          char *out, size_t out_len) {
+    char search[MAX_FIELD_LEN + 2];
+    snprintf(search, sizeof(search), "%s=", key);
+    const char *p = strstr(body, search);
+    if (!p) return 0;
+    p += strlen(search);
+ 
+    char raw[RECV_BUFFER_SIZE] = {0};
+    size_t k = 0;
+    while (*p && *p != '&' && k + 1 < sizeof(raw))
+        raw[k++] = *p++;
+    raw[k] = '\0';
+ 
+    url_decode(raw, out, out_len);
+    return 1;
+}
+
+//strip characters
+static void sanitize(char *s, size_t max_len) {
+    size_t len = strnlen(s, max_len);
+    for (size_t i = 0; i < len; i++) {
+        if      (s[i] == '<')              s[i] = '(';
+        else if (s[i] == '>')              s[i] = ')';
+        else if (s[i] == '\n' || s[i] == '\r') s[i] = ' ';
+        else if (s[i] == '|')              s[i] = '-';
+    }
+}
+
+//read and increment persistent counter; returns next request id  (starts 1)
+static int next_request_id(void) {
+    int id = 1;
+    FILE *f = fopen(REQUEST_ID_FILE, "r");
+    if (f) { int r = fscanf(f, "%d", &id); (void)r; fclose(f); id++; }
+    f = fopen(REQUEST_ID_FILE, "w");
+    if (f) { fprintf(f, "%d", id); fclose(f); }
+    return id;
+}
+
 //shared css for all pages via macro
 
 #define SHARED_CSS \
