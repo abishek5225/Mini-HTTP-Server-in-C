@@ -455,6 +455,34 @@ static void handle_status(int fd) {
              "{\"status\":\"running\",\"requests_stored\":%d}", count);
     send_response(fd, 200, "OK", "application/json", json, strlen(json));
 }
+
+//request dispatcher
+static void dispatch(int client_fd, const char *buf) {
+    if (strlen(buf) < 10) { send_404(client_fd); return; }
+ 
+    char method[8]  = {0};
+    char path[256]  = {0};
+    sscanf(buf, "%7s %255s", method, path);
+ 
+    printf(CLR_CYAN "[>] %s %s\n" CLR_RESET, method, path);
+ 
+    if      (strcmp(path, "/")         == 0) {
+        if (strcmp(method, "GET")  == 0) handle_home(client_fd);
+        else                             send_405(client_fd);
+    } else if (strcmp(path, "/help")   == 0) {
+        if (strcmp(method, "POST") == 0) handle_post_help(client_fd, buf);
+        else                             send_405(client_fd);
+    } else if (strcmp(path, "/requests") == 0) {
+        if (strcmp(method, "GET")  == 0) handle_view_requests(client_fd);
+        else                             send_405(client_fd);
+    } else if (strcmp(path, "/status") == 0) {
+        if (strcmp(method, "GET")  == 0) handle_status(client_fd);
+        else                             send_405(client_fd);
+    } else {
+        send_404(client_fd);
+    }
+}
+
 int main(){
         int server_socket, client_socket;
         struct sockaddr_in address; //stores ip + port info
