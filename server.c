@@ -324,6 +324,51 @@ static void build_requests_page(char *buf, size_t buf_len) {
 }
 
 //http response helpers
+static void send_response(int fd,
+                           int code, const char *status,
+                           const char *ctype,
+                           const char *body, size_t blen) {
+    char hdr[512];
+    int  hlen = snprintf(hdr, sizeof(hdr),
+        "HTTP/1.1 %d %s\r\n"
+        "Content-Type: %s\r\n"
+        "Content-Length: %zu\r\n"
+        "Connection: close\r\n"
+        "\r\n",
+        code, status, ctype, blen);
+    send(fd, hdr, hlen, 0);
+    if (body && blen > 0)
+        send(fd, body, blen, 0);
+}
+ 
+static void send_html(int fd, int code, const char *status, const char *html) {
+    send_response(fd, code, status, "text/html; charset=utf-8",
+                  html, strlen(html));
+}
+ 
+static void send_404(int fd) {
+    const char *body =
+        "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+        "<title>404 – EHS</title>" SHARED_CSS "</head><body>"
+        HTML_HEADER_NAV
+        "<h1>404 – Not Found</h1>"
+        "<p class='sub2'>The requested page does not exist.</p>"
+        "<a class='btn' href='/'>Go Home</a>"
+        HTML_FOOT;
+    send_html(fd, 404, "Not Found", body);
+}
+ 
+static void send_405(int fd) {
+    const char *body =
+        "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+        "<title>405 – EHS</title>" SHARED_CSS "</head><body>"
+        HTML_HEADER_NAV
+        "<h1>405 – Method Not Allowed</h1>"
+        "<p class='sub2'>This endpoint does not support that HTTP method.</p>"
+        "<a class='btn' href='/'>Go Home</a>"
+        HTML_FOOT;
+    send_html(fd, 405, "Method Not Allowed", body);
+}
 
 int main(){
         int server_socket, client_socket;
