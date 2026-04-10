@@ -242,6 +242,89 @@ static void build_success_page(char *buf, size_t len, int req_id) {
     );
 }
 
+static void build_requests_page(char *buf, size_t buf_len) {
+    /* Build the entries HTML into a temporary buffer first */
+    char entries[65536] = "";
+    int  count = 0;
+ 
+    FILE *f = fopen(REQUESTS_FILE, "r");
+    if (f) {
+        char line[1024];
+        /* File line format:  ID|timestamp|name|location|message */
+        while (fgets(line, sizeof(line), f)) {
+            size_t l = strlen(line);
+            if (l > 0 && line[l-1] == '\n') line[l-1] = '\0';
+            if (strlen(line) < 5) continue;
+ 
+            char *id_s   = strtok(line, "|");
+            char *ts_s   = strtok(NULL, "|");
+            char *name_s = strtok(NULL, "|");
+            char *loc_s  = strtok(NULL, "|");
+            char *msg_s  = strtok(NULL, "|");
+            if (!id_s || !ts_s || !name_s || !loc_s || !msg_s) continue;
+ 
+            char entry[2048];
+            snprintf(entry, sizeof(entry),
+                "<div class='req-card'>"
+                "  <div class='req-meta'>"
+                "    <span class='badge badge-red'>REQ #%s</span>&nbsp;&nbsp;%s"
+                "  </div>"
+                "  <div class='req-name'>%s</div>"
+                "  <div class='req-msg'>%s</div>"
+                "  <div class='req-loc'>&#128205; Location: <span>%s</span></div>"
+                "</div>",
+                id_s, ts_s, name_s, msg_s, loc_s
+            );
+            if (strlen(entries) + strlen(entry) + 1 < sizeof(entries))
+                strncat(entries, entry, sizeof(entries) - strlen(entries) - 1);
+            count++;
+        }
+        fclose(f);
+    }
+ char count_info[128];
+    if (count == 0) {
+        snprintf(entries, sizeof(entries),
+            "<div class='empty'>&#128203; No help requests on file yet.</div>");
+        snprintf(count_info, sizeof(count_info), "0 requests on file");
+    } else {
+        snprintf(count_info, sizeof(count_info),
+                 "%d request%s on file", count, count == 1 ? "" : "s");
+    }
+
+    snprintf(buf, buf_len,
+        "<!DOCTYPE html><html lang='en'><head>"
+        "<meta charset='UTF-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<meta http-equiv='refresh' content='30'>"   /* auto-refresh */
+        "<title>All Requests – EHS</title>"
+        SHARED_CSS
+        "</head><body>"
+        "<header>"
+        "  <div><div class='logo'>&#9888; EHS</div>"
+        "  <div class='sub'>Emergency Help System &mdash; Offline LAN Mode</div></div>"
+        "  <nav>"
+        "    <a href='/'>Submit</a>"
+        "    <a href='/requests' class='active'>View Requests</a>"
+        "    <a href='/status'>Status</a>"
+        "  </nav>"
+        "</header><main>"
+        "<h1>Active Help Requests</h1>"
+        "<p class='sub2'>"
+        "  <span class='live-dot'></span>"
+        "  This page auto-refreshes every 30 seconds."
+        "</p>"
+        "<div class='toolbar'>"
+        "  <span class='toolbar-info'>%s</span>"
+        "  <a class='btn' href='/'>&#43; New Request</a>"
+        "</div>"
+        "%s"
+        HTML_FOOT,
+        count_info, entries
+    );
+}
+
+//http response helpers
+
 int main(){
         int server_socket, client_socket;
         struct sockaddr_in address; //stores ip + port info
