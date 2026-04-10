@@ -213,6 +213,35 @@ static void build_homepage(char *buf, size_t len) {
     );
 }
 
+static void build_success_page(char *buf, size_t len, int req_id) {
+    snprintf(buf, len,
+        "<!DOCTYPE html><html lang='en'><head>"
+        "<meta charset='UTF-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Request Sent – EHS</title>"
+        SHARED_CSS
+        "</head><body>"
+        HTML_HEADER_NAV
+        "<h1>Request Submitted</h1>"
+        "<p class='sub2'>Your emergency request has been recorded.</p>"
+        "<div class='card'>"
+        "  <p style='font-size:1.1rem;margin-bottom:14px;'>"
+        "    <strong style='color:#27ae60;'>&#10003; Request #%04d received.</strong>"
+        "  </p>"
+        "  <p style='color:var(--muted);font-size:.9rem;line-height:1.6;'>"
+        "    Your request is now stored and visible to all responders "
+        "    on this local network. Stay calm and remain at your stated "
+        "    location if it is safe to do so."
+        "  </p>"
+        "  <br>"
+        "  <a class='btn' href='/'>&#43; New Request</a>"
+        "  <a class='btn-ghost' href='/requests'>View All Requests</a>"
+        "</div>"
+        HTML_FOOT,
+        req_id
+    );
+}
+
 int main(){
         int server_socket, client_socket;
         struct sockaddr_in address; //stores ip + port info
